@@ -1,0 +1,19 @@
+# Secret files (CRITICAL)
+.env
+
+# Environment setup
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE/Editor settings
+.vscode/
+.idea/
+.DS_Store
+
+# Streamlit logs/cache
+.streamlit/
