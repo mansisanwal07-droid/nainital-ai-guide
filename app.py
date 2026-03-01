@@ -39,13 +39,13 @@ if not api_key:
 # Configure the Gemini API
 try:
     genai.configure(api_key=api_key)
-    # FIXED: Using a valid, stable model version
+    # Using the stable model version
     model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
     st.error(f"Failed to configure Gemini API: {str(e)}")
     st.stop()
 
-# --- SIDEBAR START ---
+# 2. SIDEBAR NAVIGATION
 with st.sidebar:
     st.title("ℹ️ About This Guide")
     st.info("This AI guide specializes in Nainital, Uttarakhand - the Lake District of India.")
@@ -60,11 +60,11 @@ with st.sidebar:
     
     for label, query in topics.items():
         if st.button(label, use_container_width=True):
-            st.session_state.prefill_query = query
+            # Directly add to session state and rerun to trigger AI response
+            st.session_state.messages.append({"role": "user", "content": query})
             st.rerun()
-# --- SIDEBAR END ---
 
-# 2. UI LAYOUT
+# 3. UI LAYOUT
 st.markdown('<div class="main-header"><h1>🏔️ Nainital Local AI Guide</h1></div>', unsafe_allow_html=True)
 
 # Chat history initialization
@@ -78,29 +78,25 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Chat input with prefill logic
-prompt_value = st.session_state.get("prefill_query", "")
-
-if prompt := st.chat_input("Ask your Nainital travel question...", value=prompt_value):
-    # Clear the prefill after using
-    if "prefill_query" in st.session_state:
-        del st.session_state.prefill_query
-        
-    # 1. Add user message to display
+# Chat input (No 'value' parameter used here to avoid errors)
+if prompt := st.chat_input("Ask your Nainital travel question..."):
+    # Add user message to display
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-    
-    # 2. Build context for the AI
-    conversation_context = ""
-    for msg in st.session_state.messages:
-        conversation_context += f"{msg['role']}: {msg['content']}\n"
-    
-    system_instruction = "You are a friendly local expert from Nainital. Answer the user's latest question based on the conversation history."
-    full_prompt = f"{system_instruction}\n\n{conversation_context}assistant:"
-    
+
+# If the last message is from the user, generate a response
+if st.session_state.messages[-1]["role"] == "user":
     with st.chat_message("assistant"):
         with st.spinner("Thinking... 🧠"):
+            # Build context
+            conversation_context = ""
+            for msg in st.session_state.messages:
+                conversation_context += f"{msg['role']}: {msg['content']}\n"
+            
+            system_instruction = "You are a friendly local expert from Nainital. Answer the user's latest question based on the conversation history."
+            full_prompt = f"{system_instruction}\n\n{conversation_context}assistant:"
+            
             try:
                 response = model.generate_content(full_prompt)
                 msg_content = response.text if response else "I couldn't generate a response."
@@ -108,7 +104,6 @@ if prompt := st.chat_input("Ask your Nainital travel question...", value=prompt_
                 msg_content = f"⚠️ Sorry, I encountered an error: {str(e)}"
             
             st.markdown(msg_content)
-            # 3. Add assistant response to history
             st.session_state.messages.append({"role": "assistant", "content": msg_content})
 
 # Footer
