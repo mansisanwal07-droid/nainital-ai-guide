@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS
+# Custom CSS for UI
 st.markdown("""
     <style>
     .main-header {
@@ -36,11 +36,10 @@ if not api_key:
     st.error("⚠️ API key not found! Please ensure your .env file is set up correctly.")
     st.stop()
 
-# Configure the Gemini API
+# Configure the Gemini API with your requested model
 try:
     genai.configure(api_key=api_key)
-    # Using the stable model version
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
 except Exception as e:
     st.error(f"Failed to configure Gemini API: {str(e)}")
     st.stop()
@@ -48,23 +47,22 @@ except Exception as e:
 # 2. SIDEBAR NAVIGATION
 with st.sidebar:
     st.title("ℹ️ About This Guide")
-    st.info("This AI guide specializes in Nainital, Uttarakhand - the Lake District of India.")
+    st.info("Your local AI expert for Nainital, Uttarakhand.")
     
     st.subheader("📌 Popular Topics")
     topics = {
-        "🏞️ Places": "Tell me about the best hidden gems and viewpoints in Nainital.",
-        "🍽️ Food": "What are some must-try local dishes or restaurants in Nainital?",
-        "🏨 Stay": "Help me find good options for a family stay in Nainital.",
-        "🚗 Travel": "What is the best way to get around Nainital locally?"
+        "🏞️ Places": "Give me a list of hidden gems and viewpoints in Nainital.",
+        "🍽️ Food": "What are some must-try local dishes in Nainital?",
+        "🏨 Stay": "What are the best areas for a family stay in Nainital?",
+        "🚗 Travel": "What is the best way to travel around Nainital locally?"
     }
     
     for label, query in topics.items():
         if st.button(label, use_container_width=True):
-            # Directly add to session state and rerun to trigger AI response
-            st.session_state.messages.append({"role": "user", "content": query})
+            st.session_state.prefill_query = query
             st.rerun()
 
-# 3. UI LAYOUT
+# 3. UI LAYOUT & CHAT
 st.markdown('<div class="main-header"><h1>🏔️ Nainital Local AI Guide</h1></div>', unsafe_allow_html=True)
 
 # Chat history initialization
@@ -78,25 +76,28 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Chat input (No 'value' parameter used here to avoid errors)
-if prompt := st.chat_input("Ask your Nainital travel question..."):
+# Handle Prefill
+prompt_value = st.session_state.get("prefill_query", None)
+if "prefill_query" in st.session_state:
+    del st.session_state.prefill_query
+
+# Chat input
+if prompt := st.chat_input("Ask your Nainital travel question...", key=prompt_value):
     # Add user message to display
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-
-# If the last message is from the user, generate a response
-if st.session_state.messages[-1]["role"] == "user":
+    
+    # Build context
+    conversation_context = ""
+    for msg in st.session_state.messages:
+        conversation_context += f"{msg['role']}: {msg['content']}\n"
+    
+    system_instruction = "You are a friendly local expert from Nainital. Answer the user's latest question based on the conversation history."
+    full_prompt = f"{system_instruction}\n\n{conversation_context}assistant:"
+    
     with st.chat_message("assistant"):
         with st.spinner("Thinking... 🧠"):
-            # Build context
-            conversation_context = ""
-            for msg in st.session_state.messages:
-                conversation_context += f"{msg['role']}: {msg['content']}\n"
-            
-            system_instruction = "You are a friendly local expert from Nainital. Answer the user's latest question based on the conversation history."
-            full_prompt = f"{system_instruction}\n\n{conversation_context}assistant:"
-            
             try:
                 response = model.generate_content(full_prompt)
                 msg_content = response.text if response else "I couldn't generate a response."
@@ -110,7 +111,7 @@ if st.session_state.messages[-1]["role"] == "user":
 st.markdown("---")
 st.markdown("""
 <div class="footer">
-<p>⚠️ This AI guide provides general information. Always verify details before planning your trip.</p>
+<p>⚠️ Always verify details before planning your trip.</p>
 <p>Made with ❤️ for Nainital travelers</p>
 </div>
 """, unsafe_allow_html=True)
