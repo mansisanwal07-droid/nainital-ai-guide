@@ -39,11 +39,30 @@ if not api_key:
 # Configure the Gemini API
 try:
     genai.configure(api_key=api_key)
-    # Using the model as requested
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    # FIXED: Using a valid, stable model version
+    model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
     st.error(f"Failed to configure Gemini API: {str(e)}")
     st.stop()
+
+# --- SIDEBAR START ---
+with st.sidebar:
+    st.title("ℹ️ About This Guide")
+    st.info("This AI guide specializes in Nainital, Uttarakhand - the Lake District of India.")
+    
+    st.subheader("📌 Popular Topics")
+    topics = {
+        "🏞️ Places": "Tell me about the best hidden gems and viewpoints in Nainital.",
+        "🍽️ Food": "What are some must-try local dishes or restaurants in Nainital?",
+        "🏨 Stay": "Help me find good options for a family stay in Nainital.",
+        "🚗 Travel": "What is the best way to get around Nainital locally?"
+    }
+    
+    for label, query in topics.items():
+        if st.button(label, use_container_width=True):
+            st.session_state.prefill_query = query
+            st.rerun()
+# --- SIDEBAR END ---
 
 # 2. UI LAYOUT
 st.markdown('<div class="main-header"><h1>🏔️ Nainital Local AI Guide</h1></div>', unsafe_allow_html=True)
@@ -59,15 +78,20 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Chat input
-if prompt := st.chat_input("Ask your Nainital travel question..."):
+# Chat input with prefill logic
+prompt_value = st.session_state.get("prefill_query", "")
+
+if prompt := st.chat_input("Ask your Nainital travel question...", value=prompt_value):
+    # Clear the prefill after using
+    if "prefill_query" in st.session_state:
+        del st.session_state.prefill_query
+        
     # 1. Add user message to display
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
     
     # 2. Build context for the AI
-    # Combine history into a single string to maintain context
     conversation_context = ""
     for msg in st.session_state.messages:
         conversation_context += f"{msg['role']}: {msg['content']}\n"
